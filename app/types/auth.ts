@@ -1,3 +1,5 @@
+import type { Role, ProfileStatusEnum } from '~/types/legal'
+
 export interface TokenPair {
   access: string
   refresh: string
@@ -8,30 +10,12 @@ export interface Credentials {
   password: string
 }
 
-export interface Permission {
-  permission_id: string
-  code: string
-  module: string
-  description: string | null
-  created_at: string
-}
-
-export interface Role {
-  role_id: string
-  name: string
-  description: string | null
-  permissions: Permission[]
-  created_at: string
-}
-
-export type ProfileStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'ON_LEAVE' | 'ARCHIVED'
-
 /** Mirrors users.serializers.UserSerializer (read shape) */
 export interface AuthUser {
   user_id: string
   username: string
   name: string
-  profile_status: ProfileStatus
+  profile_status: ProfileStatusEnum
   svc_number: string
   rank: string | null
   rank_details: { rank_id: string, title: string, abbreviation: string, seniority_index: number } | null

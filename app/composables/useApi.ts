@@ -1,4 +1,4 @@
-import type { FetchOptions } from 'ofetch'
+import type { NitroFetchOptions, NitroFetchRequest } from 'nitropack'
 import type { UseFetchOptions } from '#app'
 
 /**
@@ -11,20 +11,40 @@ import type { UseFetchOptions } from '#app'
  * Use `api()` for imperative calls (mutations, handlers) and `useApiFetch()`
  * for SSR-safe reactive reads.
  */
+export function resolveApiPath(path: string, defaultBase: string): { url: string, baseURL?: string } {
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return { url: path }
+  }
+  if (path === '/health/' || path === '/api/health/') {
+    try {
+      const origin = new URL(defaultBase).origin
+      return { url: path, baseURL: origin }
+    } catch {
+      return { url: path, baseURL: defaultBase }
+    }
+  }
+  if (path.startsWith('/api/v1/')) {
+    return { url: path.replace(/^\/api\/v1/, ''), baseURL: defaultBase }
+  }
+  return { url: path, baseURL: defaultBase }
+}
+
 export function useApi() {
   const config = useRuntimeConfig()
   const auth = useAuthStore()
 
-  async function api<T>(path: string, options: FetchOptions<'json'> = {}): Promise<T> {
+  async function api<T = any>(path: string, options: NitroFetchOptions<NitroFetchRequest> = {}): Promise<T> {
+    const { url, baseURL } = resolveApiPath(path, config.public.apiBase)
+
     const run = () =>
-      $fetch<T>(path, {
+      $fetch<T>(url as NitroFetchRequest, {
         ...options,
-        baseURL: config.public.apiBase,
+        baseURL: options.baseURL || baseURL,
         headers: {
           ...(options.headers as Record<string, string> | undefined),
           ...(auth.accessToken ? { Authorization: `Bearer ${auth.accessToken}` } : {})
         }
-      } as FetchOptions<'json'>)
+      } as any)
 
     try {
       return await run()
@@ -53,10 +73,13 @@ export function useApi() {
 }
 
 /** SSR-safe `useFetch` wired through `useApi` (auth, refresh, typed errors). */
-export function useApiFetch<T>(path: MaybeRefOrGetter<string>, options: UseFetchOptions<T> = {}) {
+export function useApiFetch<T = any>(
+  path: MaybeRefOrGetter<string>,
+  options: UseFetchOptions<T> = {}
+) {
   const { api } = useApi()
   return useFetch<T, ApiError>(path, {
     ...options,
-    $fetch: api as typeof $fetch
-  } as UseFetchOptions<T>)
+    $fetch: api as unknown as typeof $fetch
+  } as any)
 }

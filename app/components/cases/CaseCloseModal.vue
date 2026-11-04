@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Case, CaseClosePayload, StatusEnum } from '~/types/legal'
-import { ApiError } from '~/utils/api-error'
+import { parseCaseActionError } from '~/utils/api-error'
 
 const props = defineProps<{
   open: boolean
@@ -72,11 +72,13 @@ async function onSubmit() {
 
     emit('closed', res)
     isOpen.value = false
-  } catch (err: any) {
-    if (err instanceof ApiError) {
-      errors.value = err.messages.length ? err.messages : [err.message]
+  } catch (err) {
+    const parsed = parseCaseActionError(err, 'Failed to close case')
+    if (parsed.denied) {
+      toast.add({ title: 'Action Denied', description: parsed.messages[0], color: 'error' })
+      isOpen.value = false
     } else {
-      errors.value = [err?.message || 'Failed to close case']
+      errors.value = parsed.messages
     }
   } finally {
     loading.value = false

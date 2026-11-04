@@ -52,3 +52,20 @@ export function toApiError(status: number | undefined, data: unknown, fallback =
   const message = messages[0] ?? Object.values(fields)[0]?.[0] ?? fallback
   return new ApiError(code, message, fields, messages)
 }
+
+const VIEW_ONLY_MESSAGE = 'You have view-only access to this case.'
+
+/**
+ * Map an error from a case-mutating action (mark / mark-back / edit …) to UI feedback.
+ *  - 403 → toast-worthy "Action Denied" (`denied: true`)
+ *  - 400 → inline dialog messages
+ */
+export function parseCaseActionError(err: unknown, fallback = 'Action failed'): { denied: boolean, messages: string[], fields: Record<string, string[]> } {
+  if (err instanceof ApiError) {
+    if (err.status === 403) {
+      return { denied: true, messages: [err.message || VIEW_ONLY_MESSAGE], fields: {} }
+    }
+    return { denied: false, messages: err.messages.length ? err.messages : [err.message], fields: err.fields }
+  }
+  return { denied: false, messages: [(err as Error)?.message || fallback], fields: {} }
+}

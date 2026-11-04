@@ -15,11 +15,55 @@ useHead({
 })
 
 // Active tab
-const activeTab = ref<'proceedings' | 'parties' | 'info'>('proceedings')
+const activeTab = ref<'timeline' | 'proceedings' | 'parties' | 'history'>('timeline')
 
 // Modals
 const isEditModalOpen = ref(false)
 const isCloseModalOpen = ref(false)
+const isMarkModalOpen = ref(false)
+const isMarkBackModalOpen = ref(false)
+
+const historyRef = ref<{ refresh: () => Promise<void> | void } | null>(null)
+const timelineRef = ref<{ refresh: () => Promise<void> | void } | null>(null)
+
+// Case is open for work (close/mark only make sense while undecided)
+const isOpenCase = computed(() => !!caseItem.value && caseItem.value.status !== 'DECIDED' && caseItem.value.status !== 'DISPOSED')
+
+async function onMarkingChanged() {
+  // Marking changes access flags, so re-read the case, the audit trail, and the timeline.
+  await refresh()
+  await Promise.all([
+    historyRef.value?.refresh(),
+    timelineRef.value?.refresh()
+  ])
+}
+
+async function onProceedingSaved() {
+  await refresh()
+  await timelineRef.value?.refresh()
+}
+
+async function onPartySaved() {
+  await refresh()
+  await timelineRef.value?.refresh()
+}
+
+async function onCaseSaved() {
+  await refresh()
+  await timelineRef.value?.refresh()
+}
+
+async function onCaseClosed() {
+  await refresh()
+  await timelineRef.value?.refresh()
+}
+
+function onTimelineEditProceeding(proceedingId: string) {
+  const p = caseItem.value?.proceedings?.find(item => item.proceeding_id === proceedingId)
+  if (p) {
+    openEditProceeding(p)
+  }
+}
 
 const isPartyModalOpen = ref(false)
 const selectedParty = ref<CaseParty | null>(null)
@@ -61,7 +105,8 @@ async function confirmDeleteParty() {
     await deleteParty(partyToDelete.value.party_id)
     toast.add({ title: 'Party removed from case', color: 'success' })
     isDeletePartyModalOpen.value = false
-    refresh()
+    await refresh()
+    await timelineRef.value?.refresh()
   } catch (err: any) {
     toast.add({ title: 'Failed to remove party', description: err?.message, color: 'error' })
   } finally {
@@ -91,7 +136,8 @@ async function confirmDeleteProceeding() {
     await deleteProceeding(proceedingToDelete.value.proceeding_id)
     toast.add({ title: 'Proceeding deleted', color: 'success' })
     isDeleteProceedingModalOpen.value = false
-    refresh()
+    await refresh()
+    await timelineRef.value?.refresh()
   } catch (err: any) {
     toast.add({ title: 'Failed to delete proceeding', description: err?.message, color: 'error' })
   } finally {
@@ -130,7 +176,26 @@ async function confirmDeleteCase() {
             />
 
             <UButton
-              v-if="caseItem && caseItem.status !== 'DECIDED' && caseItem.status !== 'DISPOSED'"
+              v-if="caseItem?.can_mark"
+              label="Mark To Officer"
+              icon="i-lucide-arrow-right-circle"
+              variant="outline"
+              color="primary"
+              size="sm"
+              @click="isMarkModalOpen = true"
+            />
+
+            <UButton
+              v-if="caseItem?.can_mark_back"
+              :label="`Mark Back to ${caseItem.marked_by_details?.name || 'Sender'}`"
+              icon="i-lucide-undo-2"
+              color="warning"
+              size="sm"
+              @click="isMarkBackModalOpen = true"
+            />
+
+            <UButton
+              v-if="caseItem?.can_work && isOpenCase"
               label="Close Case"
               icon="i-lucide-check-circle"
               color="warning"
@@ -139,7 +204,7 @@ async function confirmDeleteCase() {
             />
 
             <UButton
-              v-if="caseItem"
+              v-if="caseItem?.can_work"
               label="Edit Case"
               icon="i-lucide-pencil"
               variant="outline"
@@ -149,7 +214,7 @@ async function confirmDeleteCase() {
             />
 
             <UButton
-              v-if="caseItem"
+              v-if="caseItem?.can_work"
               icon="i-lucide-trash-2"
               color="error"
               variant="ghost"
@@ -163,6 +228,19 @@ async function confirmDeleteCase() {
 
     <template #body>
       <div v-if="caseItem" class="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto w-full">
+        <!-- View-only notice -->
+        <UAlert
+          v-if="!caseItem.can_work"
+          icon="i-lucide-info"
+          color="neutral"
+          variant="soft"
+          title="View-Only Mode"
+          description="This case is marked to another officer. You have read-only permissions."
+        />
+
+        <!-- Active marking instructions -->
+        <CasesCaseMarkingBanner :case-item="caseItem" />
+
         <!-- Top Docket Banner Card -->
         <div class="p-5 sm:p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm space-y-4">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -172,6 +250,7 @@ async function confirmDeleteCase() {
                   Case Docket #
                 </span>
                 <CommonStatusBadge :value="caseItem.status" />
+                <CasesCaseAccessBadge :value="caseItem.work_access_type" />
               </div>
               <h1 class="text-xl sm:text-2xl font-bold text-highlighted">
                 {{ caseItem.case_number }}
@@ -182,7 +261,7 @@ async function confirmDeleteCase() {
             </div>
 
             <!-- Quick Action Buttons -->
-            <div class="flex flex-wrap items-center gap-2">
+            <div v-if="caseItem.can_work" class="flex flex-wrap items-center gap-2">
               <UButton
                 label="Record Proceeding"
                 icon="i-lucide-gavel"
@@ -262,11 +341,23 @@ async function confirmDeleteCase() {
           </div>
         </div>
 
-        <!-- Navigation Tabs: Proceedings vs Litigants -->
-        <div class="flex items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 pb-2">
+        <!-- Navigation Tabs: Timeline, Proceedings, Litigants, Movement -->
+        <div class="flex items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 pb-2 overflow-x-auto">
           <button
             type="button"
-            class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition"
+            class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap"
+            :class="activeTab === 'timeline'
+              ? 'bg-primary text-inverted shadow-sm'
+              : 'text-muted hover:bg-neutral-100 dark:hover:bg-neutral-800'"
+            @click="activeTab = 'timeline'"
+          >
+            <UIcon name="i-lucide-activity" class="size-4" />
+            <span>Case Timeline</span>
+          </button>
+
+          <button
+            type="button"
+            class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap"
             :class="activeTab === 'proceedings'
               ? 'bg-primary text-inverted shadow-sm'
               : 'text-muted hover:bg-neutral-100 dark:hover:bg-neutral-800'"
@@ -281,7 +372,7 @@ async function confirmDeleteCase() {
 
           <button
             type="button"
-            class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition"
+            class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap"
             :class="activeTab === 'parties'
               ? 'bg-primary text-inverted shadow-sm'
               : 'text-muted hover:bg-neutral-100 dark:hover:bg-neutral-800'"
@@ -293,6 +384,44 @@ async function confirmDeleteCase() {
               {{ caseItem.parties?.length ?? 0 }}
             </span>
           </button>
+
+          <button
+            type="button"
+            class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap"
+            :class="activeTab === 'history'
+              ? 'bg-primary text-inverted shadow-sm'
+              : 'text-muted hover:bg-neutral-100 dark:hover:bg-neutral-800'"
+            @click="activeTab = 'history'"
+          >
+            <UIcon name="i-lucide-history" class="size-4" />
+            <span>Movement History</span>
+          </button>
+        </div>
+
+        <!-- TAB 0: TIMELINE -->
+        <div v-if="activeTab === 'timeline'" class="space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-base font-semibold text-highlighted">Case Docket Timeline</h3>
+              <p class="text-xs text-muted">Complete chronological record of filings, hearings, orders, and officer transfers</p>
+            </div>
+            <UButton
+              v-if="caseItem.can_work"
+              label="Record Proceeding"
+              icon="i-lucide-plus"
+              size="xs"
+              color="primary"
+              @click="openAddProceeding"
+            />
+          </div>
+
+          <CasesCaseTimeline
+            ref="timelineRef"
+            :case-id="caseItem.case_id"
+            :can-work="caseItem.can_work"
+            @add-proceeding="openAddProceeding"
+            @edit-proceeding="onTimelineEditProceeding"
+          />
         </div>
 
         <!-- TAB 1: PROCEEDINGS -->
@@ -303,6 +432,7 @@ async function confirmDeleteCase() {
               <p class="text-xs text-muted">Chronological proceedings recorded by the court</p>
             </div>
             <UButton
+              v-if="caseItem.can_work"
               label="Record Proceeding"
               icon="i-lucide-plus"
               size="xs"
@@ -358,7 +488,7 @@ async function confirmDeleteCase() {
                     </td>
 
                     <td class="px-4 py-3 text-right whitespace-nowrap">
-                      <div class="flex items-center justify-end gap-1">
+                      <div v-if="caseItem.can_work" class="flex items-center justify-end gap-1">
                         <UButton
                           icon="i-lucide-pencil"
                           size="xs"
@@ -382,8 +512,8 @@ async function confirmDeleteCase() {
                       <CommonEmptyState
                         icon="i-lucide-gavel"
                         title="No court proceedings recorded"
-                        description="Record hearings, orders, and adjournment notices for this case."
-                        action-label="Record First Proceeding"
+                        :description="caseItem.can_work ? 'Record hearings, orders, and adjournment notices for this case.' : 'No hearings or orders have been recorded for this case.'"
+                        :action-label="caseItem.can_work ? 'Record First Proceeding' : undefined"
                         @action="openAddProceeding"
                       />
                     </td>
@@ -402,6 +532,7 @@ async function confirmDeleteCase() {
               <p class="text-xs text-muted">Petitioners, respondents, advocates, and state representatives</p>
             </div>
             <UButton
+              v-if="caseItem.can_work"
               label="Add Litigant / Party"
               icon="i-lucide-plus"
               size="xs"
@@ -459,7 +590,7 @@ async function confirmDeleteCase() {
                     </td>
 
                     <td class="px-4 py-3 text-right">
-                      <div class="flex items-center justify-end gap-1">
+                      <div v-if="caseItem.can_work" class="flex items-center justify-end gap-1">
                         <UButton
                           icon="i-lucide-pencil"
                           size="xs"
@@ -484,7 +615,7 @@ async function confirmDeleteCase() {
                         icon="i-lucide-users"
                         title="No parties associated yet"
                         description="Add petitioner, appellant, respondent, or prosecutor details."
-                        action-label="Add First Litigant"
+                        :action-label="caseItem.can_work ? 'Add First Litigant' : undefined"
                         @action="openAddParty"
                       />
                     </td>
@@ -493,6 +624,15 @@ async function confirmDeleteCase() {
               </table>
             </div>
           </div>
+        </div>
+
+        <!-- TAB 3: MOVEMENT HISTORY -->
+        <div v-if="activeTab === 'history'" class="space-y-4">
+          <div>
+            <h3 class="text-base font-semibold text-highlighted">Movement History</h3>
+            <p class="text-xs text-muted">Chain of custody: every time this case was marked or marked back</p>
+          </div>
+          <CasesCaseMarkingHistory ref="historyRef" :case-id="caseItem.case_id" />
         </div>
       </div>
 
@@ -515,14 +655,28 @@ async function confirmDeleteCase() {
         v-if="caseItem"
         v-model:open="isEditModalOpen"
         :case-item="caseItem"
-        @saved="() => refresh()"
+        @saved="onCaseSaved"
       />
 
       <CasesCaseCloseModal
         v-if="caseItem"
         v-model:open="isCloseModalOpen"
         :case-item="caseItem"
-        @closed="() => refresh()"
+        @closed="onCaseClosed"
+      />
+
+      <CasesCaseMarkModal
+        v-if="caseItem"
+        v-model:open="isMarkModalOpen"
+        :case-item="caseItem"
+        @marked="onMarkingChanged"
+      />
+
+      <CasesCaseMarkBackModal
+        v-if="caseItem"
+        v-model:open="isMarkBackModalOpen"
+        :case-item="caseItem"
+        @marked-back="onMarkingChanged"
       />
 
       <CasesPartyFormModal
@@ -530,7 +684,7 @@ async function confirmDeleteCase() {
         v-model:open="isPartyModalOpen"
         :case-id="caseItem.case_id"
         :party-item="selectedParty"
-        @saved="() => refresh()"
+        @saved="onPartySaved"
       />
 
       <CasesProceedingFormModal
@@ -539,7 +693,7 @@ async function confirmDeleteCase() {
         :case-id="caseItem.case_id"
         :default-court-id="caseItem.court"
         :proceeding-item="selectedProceeding"
-        @saved="() => refresh()"
+        @saved="onProceedingSaved"
       />
 
       <CommonConfirmModal

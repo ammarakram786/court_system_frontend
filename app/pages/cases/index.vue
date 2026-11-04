@@ -51,6 +51,12 @@ const selectedCaseForEdit = ref<Case | null>(null)
 const isCloseModalOpen = ref(false)
 const selectedCaseForClose = ref<Case | null>(null)
 
+const isMarkModalOpen = ref(false)
+const selectedCaseForMark = ref<Case | null>(null)
+
+const isMarkBackModalOpen = ref(false)
+const selectedCaseForMarkBack = ref<Case | null>(null)
+
 const isDeleteModalOpen = ref(false)
 const selectedCaseForDelete = ref<Case | null>(null)
 const isDeleting = ref(false)
@@ -68,6 +74,16 @@ function openEditModal(c: Case) {
 function openCloseModal(c: Case) {
   selectedCaseForClose.value = c
   isCloseModalOpen.value = true
+}
+
+function openMarkModal(c: Case) {
+  selectedCaseForMark.value = c
+  isMarkModalOpen.value = true
+}
+
+function openMarkBackModal(c: Case) {
+  selectedCaseForMarkBack.value = c
+  isMarkBackModalOpen.value = true
 }
 
 function openDeleteModal(c: Case) {
@@ -104,38 +120,63 @@ function onSearchInput(val: string) {
 }
 
 function getCaseActions(c: Case): DropdownMenuItem[][] {
-  return [
+  const groups: DropdownMenuItem[][] = [
     [
       {
         label: 'View Docket Details',
         icon: 'i-lucide-external-link',
         to: `/cases/${c.case_id}`
-      },
+      }
+    ]
+  ]
+
+  const markingGroup: DropdownMenuItem[] = []
+  if (c.can_mark) {
+    markingGroup.push({
+      label: 'Mark To Officer',
+      icon: 'i-lucide-arrow-right-circle',
+      onSelect: () => openMarkModal(c)
+    })
+  }
+  if (c.can_mark_back) {
+    markingGroup.push({
+      label: `Mark Back to ${c.marked_by_details?.name || 'Sender'}`,
+      icon: 'i-lucide-undo-2',
+      color: 'warning' as const,
+      onSelect: () => openMarkBackModal(c)
+    })
+  }
+  if (markingGroup.length) groups.push(markingGroup)
+
+  if (c.can_work) {
+    const workGroup: DropdownMenuItem[] = [
       {
         label: 'Edit Case Details',
         icon: 'i-lucide-pencil',
         onSelect: () => openEditModal(c)
       }
-    ],
-    ...(c.status !== 'DECIDED' && c.status !== 'DISPOSED'
-      ? [[
-          {
-            label: 'Close / Decide Case',
-            icon: 'i-lucide-check-circle',
-            color: 'warning' as const,
-            onSelect: () => openCloseModal(c)
-          }
-        ]]
-      : []),
-    [
+    ]
+    if (c.status !== 'DECIDED' && c.status !== 'DISPOSED') {
+      workGroup.push({
+        label: 'Close / Decide Case',
+        icon: 'i-lucide-check-circle',
+        color: 'warning' as const,
+        onSelect: () => openCloseModal(c)
+      })
+    }
+    groups.push(workGroup)
+
+    groups.push([
       {
         label: 'Delete Case',
         icon: 'i-lucide-trash-2',
         color: 'error' as const,
         onSelect: () => openDeleteModal(c)
       }
-    ]
-  ]
+    ])
+  }
+
+  return groups
 }
 </script>
 
@@ -276,6 +317,16 @@ function getCaseActions(c: Case): DropdownMenuItem[][] {
                     <span v-if="c.assigned_case_officer_details" class="text-[11px] text-muted block">
                       Officer: {{ c.assigned_case_officer_details.name }}
                     </span>
+                    <div class="mt-1 flex flex-wrap items-center gap-1">
+                      <CasesCaseAccessBadge :value="c.work_access_type" size="xs" />
+                      <span
+                        v-if="c.marked_by_details"
+                        class="text-[10px] text-muted"
+                        :title="`Marked by ${c.marked_by_details.name}`"
+                      >
+                        (from {{ c.marked_by_details.name }})
+                      </span>
+                    </div>
                   </td>
 
                   <td class="px-4 py-3.5">
@@ -347,6 +398,18 @@ function getCaseActions(c: Case): DropdownMenuItem[][] {
         v-model:open="isCloseModalOpen"
         :case-item="selectedCaseForClose"
         @closed="() => refresh()"
+      />
+
+      <CasesCaseMarkModal
+        v-model:open="isMarkModalOpen"
+        :case-item="selectedCaseForMark"
+        @marked="() => refresh()"
+      />
+
+      <CasesCaseMarkBackModal
+        v-model:open="isMarkBackModalOpen"
+        :case-item="selectedCaseForMarkBack"
+        @marked-back="() => refresh()"
       />
 
       <CommonConfirmModal

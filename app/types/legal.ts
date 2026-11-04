@@ -3,6 +3,8 @@ export type StatusEnum = 'PENDING' | 'DECIDED' | 'DISPOSED' | 'TRANSFERRED' | 'C
 export type PartySideEnum = 'PETITIONER' | 'RESPONDENT' | 'STATE'
 export type EffectEnum = 'ALLOW' | 'DENY'
 export type NatureEnum = 'CIVIL' | 'CRIMINAL'
+export type WorkAccessTypeEnum = 'ASSIGNED' | 'PEER' | 'ADMIN' | 'VIEW_ONLY'
+export type MarkingActionEnum = 'INITIAL' | 'MARK' | 'MARK_BACK'
 export type ProfileStatusEnum = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'ON_LEAVE' | 'ARCHIVED'
 
 // --- Reference & Org Models ---
@@ -218,6 +220,10 @@ export interface Case {
   managing_organization_details: Organization
   assigned_case_officer: string | null
   assigned_case_officer_details: User | null
+  marked_by: string | null
+  marked_by_details: User | null
+  marked_at: string | null
+  marking_remarks: string | null
   institution_number: string | null
   institution_date: string
   police_station: string | null
@@ -229,8 +235,36 @@ export interface Case {
   decision_date: string | null
   parties: CaseParty[]
   proceedings: CaseProceeding[]
+
+  // Object-level permission & UI metadata (computed by the backend per request user)
+  can_work: boolean
+  can_mark: boolean
+  can_mark_back: boolean
+  work_access_type: WorkAccessTypeEnum
+
   created_at: string
   updated_at: string
+}
+
+export interface CaseMarkingHistory {
+  history_id: string
+  case: string
+  from_user: string
+  from_user_details: User
+  to_user: string
+  to_user_details: User
+  action: MarkingActionEnum
+  remarks: string | null
+  created_at: string
+}
+
+export interface CaseMarkPayload {
+  to_user_id: string
+  remarks?: string
+}
+
+export interface CaseMarkBackPayload {
+  remarks?: string
 }
 
 export interface CasePayload {
@@ -257,6 +291,61 @@ export interface CaseClosePayload {
   today_action?: string
   [key: string]: unknown
 }
+
+// --- Case Timeline ---
+export type CaseTimelineEventType = 'INSTITUTION' | 'PROCEEDING' | 'MARK' | 'MARK_BACK' | 'DECISION'
+
+export interface CaseTimelineEventMetadata {
+  // Institution
+  court?: string | null
+  court_id?: string | null
+  category?: string | null
+  category_nature?: string | null
+  institution_number?: string | null
+  managing_organization?: string | null
+  police_station?: string | null
+  fir_number?: string | null
+  fir_year?: number | null
+  offence_sections?: string | null
+
+  // Proceeding
+  proceeding_id?: string | null
+  sr_no?: number | null
+  stage?: string | null
+  today_action?: string | null
+  short_order?: string | null
+  next_proceeding_date?: string | null
+  next_stage_purpose?: string | null
+  is_case_decided?: boolean | null
+  court_name?: string | null
+  presiding_officer?: string | null
+
+  // Marking
+  history_id?: string | null
+  action?: MarkingActionEnum | null
+  from_user_name?: string | null
+  to_user_name?: string | null
+  remarks?: string | null
+
+  // Decision
+  status?: StatusEnum | null
+  decision_date?: string | null
+
+  [key: string]: unknown
+}
+
+export interface CaseTimelineEvent {
+  id: string
+  event_type: CaseTimelineEventType
+  title: string
+  description: string
+  date: string
+  timestamp: string
+  actor: User | null
+  target_user?: User | null
+  metadata: CaseTimelineEventMetadata
+}
+
 
 // --- Cause Lists ---
 export interface CauseListItem {

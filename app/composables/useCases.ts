@@ -2,6 +2,10 @@ import type {
   Case,
   CasePayload,
   CaseClosePayload,
+  CaseMarkingHistory,
+  CaseMarkPayload,
+  CaseMarkBackPayload,
+  CaseTimelineEvent,
   CaseParty,
   CasePartyPayload,
   CaseProceeding,
@@ -67,6 +71,47 @@ export function useCases() {
       method: 'POST',
       body: payload
     })
+  }
+
+  /** Mark / reassign a case to another officer: POST /cases/{id}/mark/ */
+  function markCase(caseId: string, payload: CaseMarkPayload): Promise<Case> {
+    return api<Case>(`/cases/${caseId}/mark/`, {
+      method: 'POST',
+      body: payload
+    })
+  }
+
+  /** Return a case to the officer who marked it: POST /cases/{id}/mark-back/ */
+  function markBackCase(caseId: string, payload: CaseMarkBackPayload = {}): Promise<Case> {
+    return api<Case>(`/cases/${caseId}/mark-back/`, {
+      method: 'POST',
+      body: payload
+    })
+  }
+
+  /** Chronological marking audit trail: GET /cases/{id}/marking-history/ */
+  function useCaseMarkingHistory(caseId: MaybeRefOrGetter<string>) {
+    return useApiFetch<CaseMarkingHistory[]>(() => `/cases/${toValue(caseId)}/marking-history/`, {
+      watch: [() => toValue(caseId)]
+    })
+  }
+
+  /**
+   * SSR-safe reactive comprehensive case timeline: GET /cases/{id}/timeline/?order=desc|asc
+   */
+  function useCaseTimeline(
+    caseId: MaybeRefOrGetter<string>,
+    order: MaybeRefOrGetter<'asc' | 'desc'> = 'desc'
+  ) {
+    return useApiFetch<CaseTimelineEvent[]>(
+      () => `/cases/${toValue(caseId)}/timeline/`,
+      {
+        query: {
+          order: computed(() => toValue(order))
+        },
+        watch: [() => toValue(caseId), () => toValue(order)]
+      }
+    )
   }
 
   /** Nested parties endpoints: /cases/{case_id}/parties/ */
@@ -161,6 +206,10 @@ export function useCases() {
     patchCase,
     deleteCase,
     closeCase,
+    markCase,
+    markBackCase,
+    useCaseMarkingHistory,
+    useCaseTimeline,
     useCaseParties,
     addCaseParty,
     usePartiesList,

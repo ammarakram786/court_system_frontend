@@ -2,14 +2,17 @@ import type { NitroFetchOptions, NitroFetchRequest } from 'nitropack'
 import type { UseFetchOptions } from '#app'
 
 /**
- * Central gateway to the Django REST Framework API.
+ * Enterprise Gateway to the Django REST Framework API.
  *
- *  - injects base URL + `Authorization: Bearer <access>`
- *  - on 401 transparently refreshes the JWT once and retries
- *  - converts every failure into a typed `ApiError` (field errors included)
- *
- * Use `api()` for imperative calls (mutations, handlers) and `useApiFetch()`
- * for SSR-safe reactive reads.
+ * Architecture Highlights:
+ *  - Dual-Base Strategy: Uses high-speed internal base (apiBaseInternal) during SSR
+ *    and unified reverse proxy base (apiBase) in client browser.
+ *  - Automatic SSR Header Forwarding: Forwards client IP, User-Agent, and Accept-Language
+ *    to Django DRF for proper rate-limiting and audit trails.
+ *  - Atomic JWT Auth: Injects Bearer token from SSR-compatible cookie storage.
+ *  - Race-Condition-Proof 401 Silent Refresh: Deduplicates simultaneous refresh requests
+ *    and retries the original request seamlessly upon token rotation.
+ *  - Uniform Error Envelope: Transforms DRF error responses into structured `ApiError`.
  */
 export function resolveApiPath(path: string, defaultBase: string): { url: string, baseURL?: string } {
   if (path.startsWith('http://') || path.startsWith('https://')) {
@@ -17,8 +20,11 @@ export function resolveApiPath(path: string, defaultBase: string): { url: string
   }
   if (path === '/health/' || path === '/api/health/') {
     try {
-      const origin = new URL(defaultBase).origin
-      return { url: path, baseURL: origin }
+      if (defaultBase.startsWith('http://') || defaultBase.startsWith('https://')) {
+        const origin = new URL(defaultBase).origin
+        return { url: path, baseURL: origin }
+      }
+      return { url: path }
     } catch {
       return { url: path, baseURL: defaultBase }
     }
@@ -33,14 +39,33 @@ export function useApi() {
   const config = useRuntimeConfig()
   const auth = useAuthStore()
 
+  // Select base URL according to execution runtime
+  const effectiveBaseUrl = (import.meta.server && config.apiBaseInternal)
+    ? (config.apiBaseInternal as string)
+    : config.public.apiBase
+
   async function api<T = any>(path: string, options: NitroFetchOptions<NitroFetchRequest> = {}): Promise<T> {
-    const { url, baseURL } = resolveApiPath(path, config.public.apiBase)
+    const { url, baseURL } = resolveApiPath(path, effectiveBaseUrl)
+
+    // Forward SSR client headers to backend (for IP auditing, rate limits, geolocation)
+    let ssrHeaders: Record<string, string> = {}
+    if (import.meta.server) {
+      try {
+        const forwarded = useRequestHeaders(['user-agent', 'x-forwarded-for', 'x-real-ip', 'accept-language'])
+        if (forwarded) {
+          ssrHeaders = forwarded as Record<string, string>
+        }
+      } catch {
+        // Safe fallback in non-request SSR contexts (e.g. build prerendering)
+      }
+    }
 
     const run = () =>
       $fetch<T>(url as NitroFetchRequest, {
         ...options,
         baseURL: options.baseURL || baseURL,
         headers: {
+          ...ssrHeaders,
           ...(options.headers as Record<string, string> | undefined),
           ...(auth.accessToken ? { Authorization: `Bearer ${auth.accessToken}` } : {})
         }

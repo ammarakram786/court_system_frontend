@@ -68,24 +68,44 @@ export type OrganizationPayload = Pick<Organization, 'name' | 'code'> &
 // --- RBAC & Users ---
 export interface Permission {
   permission_id: string
+  id?: string
   code: string
+  code_name?: string
   module: string
+  module_name?: string
+  name?: string
+  app_name?: string
   description: string | null
   created_at: string
+  updated_at?: string
 }
 
-export type PermissionPayload = Pick<Permission, 'code' | 'module'> & Partial<Pick<Permission, 'description'>>
+export type PermissionPayload = {
+  code?: string
+  code_name?: string
+  module?: string
+  module_name?: string
+  name?: string
+  description?: string | null
+}
 
 export interface Role {
   role_id: string
+  id?: string
   name: string
   description: string | null
   permissions: Permission[]
-  permission_ids: string[]
+  permission_ids?: string[]
+  users_count?: number
   created_at: string
+  updated_at?: string
 }
 
-export type RolePayload = Pick<Role, 'name' | 'permission_ids'> & Partial<Pick<Role, 'description'>>
+export type RolePayload = {
+  name: string
+  description?: string | null
+  permission_ids: string[]
+}
 
 export interface PermissionOverride {
   override_id: string

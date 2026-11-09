@@ -141,7 +141,7 @@ function resetFilters() {
               @update:model-value="filters.page = 1"
             />
 
-            <USelect
+            <AppSelect
               v-model="filters.court"
               :items="courtOptions"
               value-key="value"
@@ -159,7 +159,7 @@ function resetFilters() {
               @update:model-value="filters.page = 1"
             />
 
-            <USelect
+            <AppSelect
               v-model="filters.day_of_week"
               :items="dayOptions"
               value-key="value"

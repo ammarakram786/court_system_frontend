@@ -117,7 +117,7 @@ async function onSubmit() {
           </UFormField>
 
           <UFormField label="Parent Organization" :error="fieldErrors.parent_organization?.[0]">
-            <USelect
+            <AppSelect
               v-model="formState.parent_organization"
               :items="parentOptions"
               value-key="value"

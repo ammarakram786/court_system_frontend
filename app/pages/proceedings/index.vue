@@ -114,7 +114,7 @@ function resetFilters() {
               @update:model-value="filters.page = 1"
             />
 
-            <USelect
+            <AppSelect
               v-model="filters.court"
               :items="courtOptions"
               value-key="value"
@@ -124,7 +124,7 @@ function resetFilters() {
               @update:model-value="filters.page = 1"
             />
 
-            <USelect
+            <AppSelect
               v-model="selectedDecided"
               :items="decidedOptions"
               value-key="value"

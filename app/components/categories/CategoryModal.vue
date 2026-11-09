@@ -109,7 +109,7 @@ async function onSubmit() {
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <UFormField label="Legal Nature" required :error="fieldErrors.nature?.[0]">
-            <USelect
+            <AppSelect
               v-model="formState.nature"
               :items="natureOptions"
               value-key="value"

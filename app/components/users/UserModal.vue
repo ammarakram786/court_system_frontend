@@ -198,7 +198,7 @@ async function onSubmit() {
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <UFormField label="Rank" :error="fieldErrors.rank?.[0]">
-            <USelect
+            <AppSelect
               v-model="formState.rank"
               :items="rankOptions"
               value-key="value"
@@ -209,7 +209,7 @@ async function onSubmit() {
           </UFormField>
 
           <UFormField label="Appointment / Designation" :error="fieldErrors.appointment?.[0]">
-            <USelect
+            <AppSelect
               v-model="formState.appointment"
               :items="apptOptions"
               value-key="value"
@@ -222,7 +222,7 @@ async function onSubmit() {
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <UFormField label="Assigned Organization" :error="fieldErrors.organization?.[0]">
-            <USelect
+            <AppSelect
               v-model="formState.organization"
               :items="orgOptions"
               value-key="value"
@@ -233,7 +233,7 @@ async function onSubmit() {
           </UFormField>
 
           <UFormField label="RBAC Role" :error="fieldErrors.role?.[0]">
-            <USelect
+            <AppSelect
               v-model="formState.role"
               :items="roleOptions"
               value-key="value"
@@ -246,7 +246,7 @@ async function onSubmit() {
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center border-t border-neutral-200 dark:border-neutral-800 pt-4">
           <UFormField label="Profile Status" :error="fieldErrors.profile_status?.[0]">
-            <USelect
+            <AppSelect
               v-model="formState.profile_status"
               :items="statusOptions"
               value-key="value"

@@ -208,7 +208,7 @@ function getCaseActions(c: Case): DropdownMenuItem[][] {
               @update:model-value="onSearchInput"
             />
 
-            <USelect
+            <AppSelect
               v-model="filters.status"
               :items="statusOptions"
               value-key="value"
@@ -218,7 +218,7 @@ function getCaseActions(c: Case): DropdownMenuItem[][] {
               @update:model-value="filters.page = 1"
             />
 
-            <USelect
+            <AppSelect
               v-model="filters.court"
               :items="courtOptions"
               value-key="value"
@@ -228,7 +228,7 @@ function getCaseActions(c: Case): DropdownMenuItem[][] {
               @update:model-value="filters.page = 1"
             />
 
-            <USelect
+            <AppSelect
               v-model="filters.category"
               :items="categoryOptions"
               value-key="value"

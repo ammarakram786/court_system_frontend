@@ -200,7 +200,7 @@ async function onSubmit() {
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <UFormField label="Court" name="court" required :error="fieldErrors.court?.[0]">
-            <USelect
+            <AppSelect
               v-model="formState.court"
               :items="courtOptions"
               value-key="value"
@@ -211,7 +211,7 @@ async function onSubmit() {
           </UFormField>
 
           <UFormField label="Category" name="category" required :error="fieldErrors.category?.[0]">
-            <USelect
+            <AppSelect
               v-model="formState.category"
               :items="categoryOptions"
               value-key="value"
@@ -224,7 +224,7 @@ async function onSubmit() {
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <UFormField label="Managing Organization" name="managing_organization" required :error="fieldErrors.managing_organization?.[0]">
-            <USelect
+            <AppSelect
               v-model="formState.managing_organization"
               :items="orgOptions"
               value-key="value"
@@ -235,7 +235,7 @@ async function onSubmit() {
           </UFormField>
 
           <UFormField label="Assigned Case Officer" name="assigned_case_officer" :error="fieldErrors.assigned_case_officer?.[0]">
-            <USelect
+            <AppSelect
               v-model="formState.assigned_case_officer"
               :items="officerOptions"
               value-key="value"
@@ -250,7 +250,7 @@ async function onSubmit() {
           <h4 class="text-xs font-semibold uppercase tracking-wider text-muted mb-3">Police & FIR Details (Optional)</h4>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <UFormField label="Police Station" name="police_station" :error="fieldErrors.police_station?.[0]">
-              <USelect
+              <AppSelect
                 v-model="formState.police_station"
                 :items="policeStationOptions"
                 value-key="value"
@@ -278,7 +278,7 @@ async function onSubmit() {
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-neutral-200 dark:border-neutral-800 pt-4">
           <UFormField label="Status" name="status" :error="fieldErrors.status?.[0]">
-            <USelect
+            <AppSelect
               v-model="formState.status"
               :items="statusOptions"
               value-key="value"

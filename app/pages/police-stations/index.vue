@@ -177,7 +177,7 @@ async function confirmDelete() {
       </div>
 
       <!-- Modals -->
-      <PolicePoliceStationModal
+      <PoliceStationModal
         v-model:open="isModalOpen"
         :station="selectedStation"
         @saved="() => refresh()"

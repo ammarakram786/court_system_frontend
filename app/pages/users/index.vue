@@ -128,7 +128,7 @@ function resetFilters() {
               @update:model-value="filters.page = 1"
             />
 
-            <USelect
+            <AppSelect
               v-model="filters.organization"
               :items="orgOptions"
               value-key="value"
@@ -138,7 +138,7 @@ function resetFilters() {
               @update:model-value="filters.page = 1"
             />
 
-            <USelect
+            <AppSelect
               v-model="filters.role"
               :items="roleOptions"
               value-key="value"
@@ -148,7 +148,7 @@ function resetFilters() {
               @update:model-value="filters.page = 1"
             />
 
-            <USelect
+            <AppSelect
               v-model="filters.profile_status"
               :items="profileStatusOptions"
               value-key="value"

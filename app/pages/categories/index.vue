@@ -88,7 +88,7 @@ async function confirmDelete() {
               class="w-full"
               @update:model-value="filters.page = 1"
             />
-            <USelect
+            <AppSelect
               v-model="filters.nature"
               :items="natureOptions"
               value-key="value"

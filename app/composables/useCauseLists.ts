@@ -17,8 +17,19 @@ export function useCauseLists() {
     })
   }
 
-  function useTodayCauseList() {
-    return useApiFetch<CauseList>('/cause-lists/today/')
+  function useTodayCauseList(courtId?: MaybeRefOrGetter<string | undefined>) {
+    return useApiFetch<CauseList | null>('/cause-lists/today/', {
+      query: computed(() => {
+        const id = toValue(courtId)
+        return id ? { court: id } : {}
+      }),
+      transform: (res: any) => {
+        if (Array.isArray(res)) {
+          return res.length > 0 ? (res[0] as CauseList) : null
+        }
+        return res as CauseList | null
+      }
+    })
   }
 
   function useCauseListDetail(id: MaybeRefOrGetter<string>) {
